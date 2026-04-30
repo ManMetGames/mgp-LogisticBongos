@@ -2,6 +2,7 @@
 
 #include "MGP_2526Character.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/Engine.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -114,12 +115,54 @@ void AMGP_2526Character::DoMove(float Right, float Forward)
 
 void AMGP_2526Character::EnterClimb()
 {
-	MovementState = EMovementState::Climbing;
+	SetMovementState(EMovementState::Climbing);
 }
 
 void AMGP_2526Character::ExitClimb()
 {
-	MovementState = EMovementState::Falling;
+	SetMovementState(EMovementState::Falling);
+}
+
+void AMGP_2526Character::SetMovementState(EMovementState NewState)
+{
+	switch (NewState)
+	{
+	case EMovementState::Walking:
+	case EMovementState::Climbing:
+	case EMovementState::Falling:
+		break;
+	default:
+		return;
+	}
+
+	if (MovementState == NewState)
+	{
+		return;
+	}
+
+	MovementState = NewState;
+
+	if (GEngine)
+	{
+		FString StateText;
+		switch (MovementState)
+		{
+		case EMovementState::Walking:
+			StateText = TEXT("Walking");
+			break;
+		case EMovementState::Climbing:
+			StateText = TEXT("Climbing");
+			break;
+		case EMovementState::Falling:
+			StateText = TEXT("Falling");
+			break;
+		default:
+			StateText = TEXT("Unknown");
+			break;
+		}
+
+		GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, FString::Printf(TEXT("Movement State: %s"), *StateText));
+	}
 }
 
 void AMGP_2526Character::DoLook(float Yaw, float Pitch)

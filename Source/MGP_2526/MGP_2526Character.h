@@ -91,6 +91,9 @@ public:
 	/** Exit climbing mode */
 	virtual void ExitClimb();
 
+	/** Safely updates the current movement state */
+	virtual void SetMovementState(EMovementState NewState);
+
 	/** Handles look inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoLook(float Yaw, float Pitch);

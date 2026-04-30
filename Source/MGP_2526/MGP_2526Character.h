@@ -14,6 +14,14 @@ struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
+UENUM(BlueprintType)
+enum class EMovementState : uint8
+{
+	Walking UMETA(DisplayName = "Walking"),
+	Climbing UMETA(DisplayName = "Climbing"),
+	Falling UMETA(DisplayName = "Falling")
+};
+
 /**
  *  A simple player-controllable third person character
  *  Implements a controllable orbiting camera
@@ -54,6 +62,10 @@ public:
 	/** Constructor */
 	AMGP_2526Character();	
 
+	/** Current movement state */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
+	EMovementState MovementState;
+
 protected:
 
 	/** Initialize input action bindings */
@@ -72,6 +84,12 @@ public:
 	/** Handles move inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoMove(float Right, float Forward);
+
+	/** Enter climbing mode */
+	virtual void EnterClimb();
+
+	/** Exit climbing mode */
+	virtual void ExitClimb();
 
 	/** Handles look inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")

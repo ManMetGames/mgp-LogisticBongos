@@ -14,6 +14,8 @@
 
 AMGP_2526Character::AMGP_2526Character()
 {
+	MovementState = EMovementState::Walking;
+
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 		
@@ -108,6 +110,16 @@ void AMGP_2526Character::DoMove(float Right, float Forward)
 		AddMovementInput(ForwardDirection, Forward);
 		AddMovementInput(RightDirection, Right);
 	}
+}
+
+void AMGP_2526Character::EnterClimb()
+{
+	MovementState = EMovementState::Climbing;
+}
+
+void AMGP_2526Character::ExitClimb()
+{
+	MovementState = EMovementState::Falling;
 }
 
 void AMGP_2526Character::DoLook(float Yaw, float Pitch)

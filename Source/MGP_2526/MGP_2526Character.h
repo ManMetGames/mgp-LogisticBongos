@@ -7,111 +7,88 @@
 #include "Logging/LogMacros.h"
 #include "MGP_2526Character.generated.h"
 
-class USpringArmComponent;
+class UInputComponent;
+class USkeletalMeshComponent;
 class UCameraComponent;
 class UInputAction;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
-UENUM(BlueprintType)
-enum class EMovementState : uint8
-{
-	Walking UMETA(DisplayName = "Walking"),
-	Climbing UMETA(DisplayName = "Climbing"),
-	Falling UMETA(DisplayName = "Falling")
-};
-
 /**
- *  A simple player-controllable third person character
- *  Implements a controllable orbiting camera
+ *  A basic first person character
  */
 UCLASS(abstract)
 class AMGP_2526Character : public ACharacter
 {
 	GENERATED_BODY()
 
-	/** Camera boom positioning the camera behind the character */
+	/** Pawn mesh: first person view (arms; seen only by self) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-	USpringArmComponent* CameraBoom;
+	USkeletalMeshComponent* FirstPersonMesh;
 
-	/** Follow camera */
+	/** First person camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-	UCameraComponent* FollowCamera;
-	
+	UCameraComponent* FirstPersonCameraComponent;
+
 protected:
 
 	/** Jump Input Action */
-	UPROPERTY(EditAnywhere, Category="Input")
+	UPROPERTY(EditAnywhere, Category ="Input")
 	UInputAction* JumpAction;
 
 	/** Move Input Action */
-	UPROPERTY(EditAnywhere, Category="Input")
+	UPROPERTY(EditAnywhere, Category ="Input")
 	UInputAction* MoveAction;
 
 	/** Look Input Action */
-	UPROPERTY(EditAnywhere, Category="Input")
-	UInputAction* LookAction;
+	UPROPERTY(EditAnywhere, Category ="Input")
+	class UInputAction* LookAction;
 
 	/** Mouse Look Input Action */
-	UPROPERTY(EditAnywhere, Category="Input")
-	UInputAction* MouseLookAction;
-
+	UPROPERTY(EditAnywhere, Category ="Input")
+	class UInputAction* MouseLookAction;
+	
 public:
-
-	/** Constructor */
-	AMGP_2526Character();	
-
-	/** Current movement state */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Movement")
-	EMovementState MovementState;
+	AMGP_2526Character();
 
 protected:
 
-	/** Initialize input action bindings */
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	/** Called from Input Actions for movement input */
+	void MoveInput(const FInputActionValue& Value);
 
-protected:
+	/** Called from Input Actions for looking input */
+	void LookInput(const FInputActionValue& Value);
 
-	/** Called for movement input */
-	void Move(const FInputActionValue& Value);
-
-	/** Called for looking input */
-	void Look(const FInputActionValue& Value);
-
-public:
+	/** Handles aim inputs from either controls or UI interfaces */
+	UFUNCTION(BlueprintCallable, Category="Input")
+	virtual void DoAim(float Yaw, float Pitch);
 
 	/** Handles move inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoMove(float Right, float Forward);
 
-	/** Enter climbing mode */
-	virtual void EnterClimb();
-
-	/** Exit climbing mode */
-	virtual void ExitClimb();
-
-	/** Safely updates the current movement state */
-	virtual void SetMovementState(EMovementState NewState);
-
-	/** Handles look inputs from either controls or UI interfaces */
-	UFUNCTION(BlueprintCallable, Category="Input")
-	virtual void DoLook(float Yaw, float Pitch);
-
-	/** Handles jump pressed inputs from either controls or UI interfaces */
+	/** Handles jump start inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoJumpStart();
 
-	/** Handles jump pressed inputs from either controls or UI interfaces */
+	/** Handles jump end inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoJumpEnd();
 
+protected:
+
+	/** Set up input action bindings */
+	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
+	
+
 public:
 
-	/** Returns CameraBoom subobject **/
-	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	/** Returns the first person mesh **/
+	USkeletalMeshComponent* GetFirstPersonMesh() const { return FirstPersonMesh; }
 
-	/** Returns FollowCamera subobject **/
-	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+	/** Returns first person camera component **/
+	UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
+
 };
 

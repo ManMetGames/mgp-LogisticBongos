@@ -5,14 +5,22 @@
 #include "EnhancedInputSubsystems.h"
 #include "Engine/LocalPlayer.h"
 #include "InputMappingContext.h"
+#include "MGP_2526CameraManager.h"
 #include "Blueprint/UserWidget.h"
 #include "MGP_2526.h"
 #include "Widgets/Input/SVirtualJoystick.h"
+
+AMGP_2526PlayerController::AMGP_2526PlayerController()
+{
+	// set the player camera manager class
+	PlayerCameraManagerClass = AMGP_2526CameraManager::StaticClass();
+}
 
 void AMGP_2526PlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	
 	// only spawn touch controls on local player controllers
 	if (SVirtualJoystick::ShouldDisplayTouchInterface() && IsLocalPlayerController())
 	{
@@ -40,7 +48,7 @@ void AMGP_2526PlayerController::SetupInputComponent()
 	// only add IMCs for local player controllers
 	if (IsLocalPlayerController())
 	{
-		// Add Input Mapping Contexts
+		// Add Input Mapping Context
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 		{
 			for (UInputMappingContext* CurrentContext : DefaultMappingContexts)
@@ -58,4 +66,5 @@ void AMGP_2526PlayerController::SetupInputComponent()
 			}
 		}
 	}
+	
 }

@@ -10,18 +10,24 @@ class UInputMappingContext;
 class UUserWidget;
 
 /**
- *  Basic PlayerController class for a third person game
- *  Manages input mappings
+ *  Simple first person Player Controller
+ *  Manages the input mapping context.
+ *  Overrides the Player Camera Manager class.
  */
 UCLASS(abstract)
-class AMGP_2526PlayerController : public APlayerController
+class MGP_2526_API AMGP_2526PlayerController : public APlayerController
 {
 	GENERATED_BODY()
 	
+public:
+
+	/** Constructor */
+	AMGP_2526PlayerController();
+
 protected:
 
 	/** Input Mapping Contexts */
-	UPROPERTY(EditAnywhere, Category ="Input|Input Mappings")
+	UPROPERTY(EditAnywhere, Category="Input|Input Mappings")
 	TArray<UInputMappingContext*> DefaultMappingContexts;
 
 	/** Input Mapping Contexts */

@@ -12,6 +12,7 @@ class USkeletalMeshComponent;
 class UCameraComponent;
 class UInputAction;
 class USoundBase;
+class UAnimationAsset;
 struct FInputActionValue;
 
 UENUM(BlueprintType)
@@ -19,6 +20,7 @@ enum class ETraversalState : uint8
 {
 	Walking,
 	Climbing,
+	Mantling,
 	Falling
 };
 
@@ -80,11 +82,23 @@ protected:
 
 	/** Movement speed while climbing */
 	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta = (ClampMin = 0, Units = "cm/s"))
-	float ClimbSpeed = 250.0f;
+	float ClimbSpeed = 160.0f;
 
 	/** Distance we keep the capsule from the wall while climbing */
 	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta = (ClampMin = 0, Units = "cm"))
 	float WallStandOffDistance = 45.0f;
+
+	/** How far above the player to search for a walkable ledge to mantle (cm) */
+	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta=(ClampMin=0, Units="cm"))
+	float MantleWindowHeight = 90.0f;
+
+	/** How far forward from the wall to probe for a mantle (cm) */
+	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta=(ClampMin=0, Units="cm"))
+	float MantleWindowForward = 40.0f;
+
+	/** How long the mantle should take (s) */
+	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta=(ClampMin=0.01f, Units="s"))
+	float MantleDuration = 0.45f;
 
 	/** Default FOV while walking */
 	UPROPERTY(EditAnywhere, Category="Traversal|Camera", meta = (ClampMin = 0, Units = "deg"))
@@ -161,11 +175,34 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Traversal|Animation")
 	UAnimationAsset* ClimbAnim_DownRight;
 
+	/** Animation played once when the climb finishes onto a ledge */
+	UPROPERTY(EditAnywhere, Category="Traversal|Animation")
+	UAnimationAsset* ClimbAnim_Top;
+
 	/** Currently playing climb animation asset */
 	UAnimationAsset* CurrentClimbAnimation = nullptr;
 
 	/** Pending climb hold timer */
 	FTimerHandle ClimbHoldTimer;
+
+	/** Timer used while playing the mantle/top animation */
+	FTimerHandle MantleTimer;
+
+	/** True while the character is actively mantling onto a ledge */
+	bool bIsMantling = false;
+
+	/** Mantle interpolation start and target transforms */
+	FVector MantleStartLocation = FVector::ZeroVector;
+	FVector MantleTargetLocation = FVector::ZeroVector;
+	FRotator MantleStartRotation = FRotator::ZeroRotator;
+	FRotator MantleTargetRotation = FRotator::ZeroRotator;
+	float MantleElapsedTime = 0.0f;
+
+	/** Starts the mantle sequence from a valid ledge hit */
+	void BeginWallMantle(const FHitResult& LedgeHit);
+
+	/** Called when the mantle/top animation finishes */
+	void OnMantleFinished();
 
 public:
 	AMGP_2526Character();
@@ -202,6 +239,12 @@ protected:
 
 	/** Starts climbing the wall that was hit by a valid trace */
 	void BeginWallClimb(const FHitResult& WallHit);
+
+	/** Attempts to finish a climb onto a walkable ledge instead of falling */
+	bool TryFinishWallClimbOnLedge(FHitResult& OutLedgeHit) const;
+
+	/** Ends climbing by placing the character into a walking state */
+	void FinishWallClimbOnLedge(const FHitResult& LedgeHit);
 
 	/** Ends climbing and transitions into the falling state */
 	void EndWallClimb(bool bLaunchAway);

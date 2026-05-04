@@ -240,6 +240,7 @@ void AMGP_2526Character::BeginWallClimb(const FHitResult& WallHit)
 	if (FirstPersonMesh)
 	{
 		FirstPersonMesh->Stop();
+		FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 		CurrentClimbAnimation = nullptr;
 	}
 }
@@ -248,7 +249,6 @@ void AMGP_2526Character::BeginWallMantle(const FHitResult& LedgeHit)
 {
 	bClimbInputHeld = false;
 	bIsMantling = true;
-	MantleElapsedTime = 0.0f;
 
 	if (UWorld* World = GetWorld())
 	{
@@ -259,26 +259,20 @@ void AMGP_2526Character::BeginWallMantle(const FHitResult& LedgeHit)
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
 		Movement->StopMovementImmediately();
-		Movement->SetMovementMode(MOVE_Walking);
+		Movement->SetMovementMode(MOVE_Flying);
 	}
 
-	MantleStartLocation = GetActorLocation();
-	MantleStartRotation = GetActorRotation();
-
+	FVector TargetLocation = LedgeHit.ImpactPoint;
 	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
 	{
 		const float CapsuleHalfHeight = Capsule->GetScaledCapsuleHalfHeight();
-		MantleTargetLocation = LedgeHit.ImpactPoint + FVector::UpVector * CapsuleHalfHeight;
-	}
-	else
-	{
-		MantleTargetLocation = LedgeHit.ImpactPoint;
+		TargetLocation = LedgeHit.ImpactPoint + FVector::UpVector * (CapsuleHalfHeight * 0.5f);
 	}
 
-	MantleTargetRotation = GetController() ? FRotator(0.0f, GetControlRotation().Yaw, 0.0f) : GetActorRotation();
+	const FRotator TargetRotation = GetController() ? FRotator(0.0f, GetControlRotation().Yaw, 0.0f) : GetActorRotation();
 
-	SetActorLocation(MantleTargetLocation, false);
-	SetActorRotation(MantleTargetRotation);
+	SetActorLocation(TargetLocation, true);
+	SetActorRotation(TargetRotation);
 	SetTraversalState(ETraversalState::Mantling);
 
 	if (FirstPersonMesh)
@@ -286,9 +280,9 @@ void AMGP_2526Character::BeginWallMantle(const FHitResult& LedgeHit)
 		FirstPersonMesh->Stop();
 		CurrentClimbAnimation = nullptr;
 
+		FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 		if (ClimbAnim_Top)
 		{
-			FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 			FirstPersonMesh->PlayAnimation(ClimbAnim_Top, false);
 
 			float AnimDuration = MantleDuration;
@@ -300,6 +294,13 @@ void AMGP_2526Character::BeginWallMantle(const FHitResult& LedgeHit)
 			if (UWorld* World = GetWorld())
 			{
 				World->GetTimerManager().SetTimer(MantleTimer, this, &AMGP_2526Character::OnMantleFinished, AnimDuration, false);
+			}
+		}
+		else
+		{
+			if (UWorld* World = GetWorld())
+			{
+				World->GetTimerManager().SetTimer(MantleTimer, this, &AMGP_2526Character::OnMantleFinished, MantleDuration, false);
 			}
 		}
 	}
@@ -356,8 +357,11 @@ void AMGP_2526Character::OnMantleFinished()
 {
 	bIsMantling = false;
 
+	SetTraversalState(ETraversalState::Walking);
+
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
+		Movement->StopMovementImmediately();
 		Movement->SetMovementMode(MOVE_Walking);
 	}
 
@@ -407,7 +411,6 @@ void AMGP_2526Character::EndWallClimb(bool bLaunchAway)
 	}
 
 	bIsMantling = false;
-	MantleElapsedTime = 0.0f;
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(MantleTimer);
@@ -437,12 +440,13 @@ void AMGP_2526Character::Tick(float DeltaSeconds)
 			CurrentClimbNormal = WallHit.ImpactNormal.GetSafeNormal();
 			const FVector DesiredLocation = WallHit.ImpactPoint + WallHit.ImpactNormal * WallStandOffDistance;
 			SetActorLocation(DesiredLocation, true);
-			SetActorRotation((-CurrentClimbNormal).Rotation());
+			const FRotator TargetRotation = (-CurrentClimbNormal).Rotation();
+			SetActorRotation(FMath::RInterpTo(GetActorRotation(), TargetRotation, DeltaSeconds, ClimbFacingInterpSpeed));
 		}
 		else
 		{
 			FHitResult FallbackLedgeHit;
-			if (CachedClimbForward > 0.15f && TryFinishWallClimbOnLedge(FallbackLedgeHit))
+			if (TryFinishWallClimbOnLedge(FallbackLedgeHit))
 			{
 				BeginWallMantle(FallbackLedgeHit);
 			}
@@ -505,6 +509,7 @@ void AMGP_2526Character::Tick(float DeltaSeconds)
 
 			if (DesiredAnim && DesiredAnim != CurrentClimbAnimation)
 			{
+				FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
 				FirstPersonMesh->PlayAnimation(DesiredAnim, true);
 				CurrentClimbAnimation = DesiredAnim;
 			}
@@ -512,17 +517,7 @@ void AMGP_2526Character::Tick(float DeltaSeconds)
 	}
 	else if (TraversalState == ETraversalState::Mantling)
 	{
-		MantleElapsedTime += DeltaSeconds;
-		const float Alpha = FMath::Clamp(MantleElapsedTime / FMath::Max(MantleDuration, 0.01f), 0.0f, 1.0f);
-
-		SetActorLocation(FMath::Lerp(MantleStartLocation, MantleTargetLocation, Alpha), true);
-		SetActorRotation(FMath::Lerp(MantleStartRotation, MantleTargetRotation, Alpha));
-
-		if (Alpha >= 1.0f)
-		{
-			SetTraversalState(ETraversalState::Walking);
-			OnMantleFinished();
-		}
+		return;
 	}
 	else if (GetCharacterMovement() && GetCharacterMovement()->IsFalling() && bClimbInputHeld)
 	{
@@ -602,7 +597,9 @@ void AMGP_2526Character::Tick(float DeltaSeconds)
 	if (FirstPersonCameraComponent)
 	{
 		const float CurrentFOV = FirstPersonCameraComponent->FieldOfView;
-		FirstPersonCameraComponent->SetFieldOfView(FMath::FInterpTo(CurrentFOV, CurrentFOVTarget, DeltaSeconds, FOVInterpSpeed));
+		const float NewFOV = FMath::FInterpTo(CurrentFOV, CurrentFOVTarget, DeltaSeconds, FOVInterpSpeed);
+		FirstPersonCameraComponent->SetFieldOfView(NewFOV);
+		FirstPersonCameraComponent->FirstPersonFieldOfView = NewFOV;
 	}
 }
 

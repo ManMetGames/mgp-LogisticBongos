@@ -88,10 +88,6 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta = (ClampMin = 0, Units = "cm"))
 	float WallStandOffDistance = 45.0f;
 
-	/** How far above the player to search for a walkable ledge to mantle (cm) */
-	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta=(ClampMin=0, Units="cm"))
-	float MantleWindowHeight = 90.0f;
-
 	/** How far forward from the wall to probe for a mantle (cm) */
 	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta=(ClampMin=0, Units="cm"))
 	float MantleWindowForward = 40.0f;
@@ -106,7 +102,11 @@ protected:
 
 	/** FOV while climbing */
 	UPROPERTY(EditAnywhere, Category="Traversal|Camera", meta = (ClampMin = 0, Units = "deg"))
-	float ClimbingFOV = 66.0f;
+	float ClimbingFOV = 80.0f;
+
+	/** How quickly the character turns to face the climb surface */
+	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta = (ClampMin = 0))
+	float ClimbFacingInterpSpeed = 10.0f;
 
 	/** FOV while falling */
 	UPROPERTY(EditAnywhere, Category="Traversal|Camera", meta = (ClampMin = 0, Units = "deg"))
@@ -190,13 +190,6 @@ protected:
 
 	/** True while the character is actively mantling onto a ledge */
 	bool bIsMantling = false;
-
-	/** Mantle interpolation start and target transforms */
-	FVector MantleStartLocation = FVector::ZeroVector;
-	FVector MantleTargetLocation = FVector::ZeroVector;
-	FRotator MantleStartRotation = FRotator::ZeroRotator;
-	FRotator MantleTargetRotation = FRotator::ZeroRotator;
-	float MantleElapsedTime = 0.0f;
 
 	/** Starts the mantle sequence from a valid ledge hit */
 	void BeginWallMantle(const FHitResult& LedgeHit);

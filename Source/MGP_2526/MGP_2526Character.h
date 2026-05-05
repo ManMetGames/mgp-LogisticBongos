@@ -90,7 +90,7 @@ protected:
 
 	/** How far forward from the wall to probe for a mantle (cm) */
 	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta=(ClampMin=0, Units="cm"))
-	float MantleWindowForward = 40.0f;
+	float MantleWindowForward = 70.0f;
 
 	/** How long the mantle should take (s) */
 	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta=(ClampMin=0.01f, Units="s"))

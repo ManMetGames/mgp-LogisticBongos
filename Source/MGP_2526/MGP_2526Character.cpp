@@ -2,6 +2,7 @@
  
 #include "MGP_2526Character.h"
 #include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -90,8 +91,6 @@ void AMGP_2526Character::MoveInput(const FInputActionValue& Value)
 	LOG_FUNCTION_ENTRY();
 	/** Get the Vector2D move axis */
 	FVector2D MovementVector = Value.Get<FVector2D>();
-	CachedClimbRight = MovementVector.X;
-	CachedClimbForward = MovementVector.Y;
  
 	/** Pass the axis values to the move input */
 	DoMove(MovementVector.X, MovementVector.Y);
@@ -258,22 +257,23 @@ void AMGP_2526Character::BeginWallClimb(const FHitResult& WallHit)
 		Movement->MaxFlySpeed = ClimbSpeed;
 	}
  
-	SetActorLocation(WallHit.ImpactPoint + CurrentClimbNormal * WallStandOffDistance, true);
+	SetActorLocation(WallHit.ImpactPoint + CurrentClimbNormal * WallStandOffDistance, false, nullptr, ETeleportType::TeleportPhysics);
 	SetActorRotation((-CurrentClimbNormal).Rotation());
  
 	if (FirstPersonMesh)
 	{
 		FirstPersonMesh->Stop();
 		FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
-		CurrentClimbAnimation = nullptr;
+		if (ClimbAnim_Up)
+		{
+			FirstPersonMesh->PlayAnimation(ClimbAnim_Up, true);
+		}
 	}
 }
  
 void AMGP_2526Character::BeginWallMantle(const FHitResult& LedgeHit)
 {
     bClimbInputHeld = false;
-    CachedClimbRight = 0.0f;
-    CachedClimbForward = 0.0f;
     bIsMantling = true;
  
     if (UWorld* World = GetWorld())
@@ -285,27 +285,27 @@ void AMGP_2526Character::BeginWallMantle(const FHitResult& LedgeHit)
     if (UCharacterMovementComponent* Movement = GetCharacterMovement())
     {
         Movement->StopMovementImmediately();
-        Movement->DisableMovement();
-        Movement->Velocity = FVector::Zero();
+        Movement->SetMovementMode(MOVE_Flying);
+        Movement->Velocity = FVector::ZeroVector;
     }
- 
-    FVector TargetLocation = LedgeHit.ImpactPoint;
- 
-    if (UCapsuleComponent* Capsule = GetCapsuleComponent())
-    {
-        const float CapsuleHalfHeight = Capsule->GetScaledCapsuleHalfHeight();
- 
-        // Put the capsule properly on top of the ledge.
-        TargetLocation = LedgeHit.ImpactPoint + FVector::UpVector * (CapsuleHalfHeight + 5.0f);
-    }
+
+	FVector TopLocation = LedgeHit.ImpactPoint;
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		const float CapsuleHalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+		TopLocation = LedgeHit.ImpactPoint + FVector::UpVector * (CapsuleHalfHeight + 5.0f);
+	}
+
+	PendingMantleTopLocation = TopLocation;
+	bHasPendingMantleTopLocation = true;
  
     const FRotator TargetRotation = GetController()
         ? FRotator(0.0f, GetControlRotation().Yaw, 0.0f)
         : GetActorRotation();
  
-    UE_LOG(LogTemp, Warning, TEXT("Mantle started | Target Location: %s"),
-        *TargetLocation.ToString()
-    );
+	UE_LOG(LogTemp, Warning, TEXT("Mantle started | Target Location: %s"),
+		*TopLocation.ToString()
+	);
  
     if (GEngine)
     {
@@ -316,53 +316,53 @@ void AMGP_2526Character::BeginWallMantle(const FHitResult& LedgeHit)
             TEXT("Mantle started")
         );
     }
-SetActorLocation(TargetLocation, true);
-    SetActorRotation(TargetRotation);
+	SetActorRotation(TargetRotation);
  
     SetTraversalState(ETraversalState::Mantling);
  
     if (FirstPersonMesh)
     {
         FirstPersonMesh->Stop();
-        CurrentClimbAnimation = nullptr;
- 
-        FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
- 
-        if (ClimbAnim_Top)
-        {
-            FirstPersonMesh->PlayAnimation(ClimbAnim_Top, false);
- 
-            float AnimDuration = MantleDuration;
- 
-            if (UAnimSequence* Seq = Cast<UAnimSequence>(ClimbAnim_Top))
-            {
-                AnimDuration = FMath::Max(0.05f, Seq->GetPlayLength());
-            }
- 
-            if (UWorld* World = GetWorld())
-            {
-                World->GetTimerManager().SetTimer(
-                    MantleTimer,
-                    this,
-                    &AMGP_2526Character::OnMantleFinished,
-                    AnimDuration,
-                    false
-                );
-            }
-        }
-        else
-        {
-            if (UWorld* World = GetWorld())
-            {
-                World->GetTimerManager().SetTimer(
-                    MantleTimer,
-                    this,
-                    &AMGP_2526Character::OnMantleFinished,
-                    MantleDuration,
-                    false
-                );
-            }
-        }
+
+		float AnimDuration = MantleDuration;
+		bool bPlayedMontage = false;
+
+		if (ClimbMontage_Top)
+		{
+			FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+			if (UAnimInstance* AnimInstance = FirstPersonMesh->GetAnimInstance())
+			{
+				AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromEverything);
+				const float PlayedDuration = AnimInstance->Montage_Play(ClimbMontage_Top, 1.0f);
+				if (PlayedDuration > 0.0f)
+				{
+					AnimDuration = PlayedDuration;
+					bPlayedMontage = true;
+				}
+			}
+		}
+
+		if (!bPlayedMontage && ClimbAnim_Top)
+		{
+			FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+			FirstPersonMesh->PlayAnimation(ClimbAnim_Top, false);
+
+			if (UAnimSequence* Seq = Cast<UAnimSequence>(ClimbAnim_Top))
+			{
+				AnimDuration = FMath::Max(0.05f, Seq->GetPlayLength());
+			}
+		}
+
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().SetTimer(
+				MantleTimer,
+				this,
+				&AMGP_2526Character::OnMantleFinished,
+				AnimDuration,
+				false
+			);
+		}
     }
     else
     {
@@ -543,7 +543,33 @@ void AMGP_2526Character::OnMantleFinished()
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
 	{
 		Movement->StopMovementImmediately();
+
+		// Anchor the finishing snap to the ledge target captured at mantle start.
+		const FVector BaseLocation = bHasPendingMantleTopLocation ? PendingMantleTopLocation : GetActorLocation();
+
+		// Do a downward capsule sweep around the expected top and place the capsule cleanly on floor.
+		FHitResult FloorHit;
+		const float Radius = GetCapsuleComponent()->GetScaledCapsuleRadius();
+		const float HalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+		const FVector SweepStart = BaseLocation + FVector::UpVector * 40.0f;
+		const FVector SweepEnd = SweepStart - FVector::UpVector * 220.0f;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(MantleFloorSweep), false, this);
+		FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(Radius, HalfHeight);
+		FVector SafeLocation = BaseLocation;
+
+		if (GetWorld() && GetWorld()->SweepSingleByChannel(FloorHit, SweepStart, SweepEnd, FQuat::Identity, ECC_Visibility, CapsuleShape, Params))
+		{
+			SafeLocation = FloorHit.ImpactPoint + FVector::UpVector * (HalfHeight + 1.0f);
+		}
+
+		SetActorLocation(SafeLocation, false, nullptr, ETeleportType::TeleportPhysics);
+		bHasPendingMantleTopLocation = false;
+
 		Movement->SetMovementMode(MOVE_Walking);
+
+		// Mark as just teleported to avoid network/physics smoothing snapping us back
+		Movement->bJustTeleported = true;
+		Movement->Velocity = FVector::ZeroVector;
 	}
  
 	if (FirstPersonMesh)
@@ -551,7 +577,6 @@ void AMGP_2526Character::OnMantleFinished()
 		// Stop single-node play and restore anim instance usage
 		FirstPersonMesh->Stop();
 		FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationBlueprint);
-		CurrentClimbAnimation = nullptr;
 	}
  
 	// Clear mantle timer
@@ -579,7 +604,7 @@ void AMGP_2526Character::EndWallClimb(bool bLaunchAway)
 	if (FirstPersonMesh)
 	{
 		FirstPersonMesh->Stop();
-		CurrentClimbAnimation = nullptr;
+		// restored to anim blueprint below
 	}
  
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
@@ -602,7 +627,6 @@ void AMGP_2526Character::EndWallClimb(bool bLaunchAway)
 	{
 		FirstPersonMesh->Stop();
 		FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationBlueprint);
-		CurrentClimbAnimation = nullptr;
 	}
  
 }
@@ -639,64 +663,7 @@ void AMGP_2526Character::Tick(float DeltaSeconds)
 			}
 		}
  
-		if (FirstPersonMesh)
-		{
-			UAnimationAsset* DesiredAnim = nullptr;
-			const float F = CachedClimbForward;
-			const float R = CachedClimbRight;
-			const float absF = FMath::Abs(F);
-			const float absR = FMath::Abs(R);
-			const float diagThreshold = 0.3f;
- 
-			if (absF > diagThreshold && absR > diagThreshold)
-			{
-				if (F > 0 && R > 0)
-				{
-					DesiredAnim = ClimbAnim_UpRight;
-				}
-				else if (F > 0 && R < 0)
-				{
-					DesiredAnim = ClimbAnim_UpLeft;
-				}
-				else if (F < 0 && R > 0)
-				{
-					DesiredAnim = ClimbAnim_DownRight;
-				}
-				else if (F < 0 && R < 0)
-				{
-					DesiredAnim = ClimbAnim_DownLeft;
-				}
-			}
-			else if (absF >= absR)
-			{
-				if (F > 0)
-				{
-					DesiredAnim = ClimbAnim_Up;
-				}
-				else if (F < 0)
-				{
-					DesiredAnim = ClimbAnim_Down;
-				}
-			}
-			else
-			{
-				if (R > 0)
-				{
-					DesiredAnim = ClimbAnim_Right;
-				}
-				else if (R < 0)
-				{
-					DesiredAnim = ClimbAnim_Left;
-				}
-			}
- 
-			if (DesiredAnim && DesiredAnim != CurrentClimbAnimation)
-			{
-				FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
-				FirstPersonMesh->PlayAnimation(DesiredAnim, true);
-				CurrentClimbAnimation = DesiredAnim;
-			}
-		}
+		// Climbing: animation handled in BeginWallClimb (single looping clip)
 	}
 	else if (TraversalState == ETraversalState::Mantling)
 	{
@@ -793,8 +760,6 @@ void AMGP_2526Character::Landed(const FHitResult& Hit)
  
 	SetTraversalState(ETraversalState::Walking);
 	bClimbInputHeld = false;
-	CachedClimbRight = 0.0f;
-	CachedClimbForward = 0.0f;
  
 	if (UWorld* World = GetWorld())
 	{

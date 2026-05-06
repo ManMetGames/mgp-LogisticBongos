@@ -13,6 +13,7 @@ class UCameraComponent;
 class UInputAction;
 class USoundBase;
 class UAnimationAsset;
+class UAnimMontage;
 struct FInputActionValue;
 
 UENUM(BlueprintType)
@@ -146,10 +147,6 @@ protected:
 	/** The wall normal we are currently climbing against */
 	FVector CurrentClimbNormal = FVector::ForwardVector;
 
-	/** Cached movement axis values while climbing */
-	float CachedClimbRight = 0.0f;
-	float CachedClimbForward = 0.0f;
-
 	/** Climb animation assets (looping) for directional movement */
 	UPROPERTY(EditAnywhere, Category="Traversal|Animation")
 	UAnimationAsset* ClimbAnim_Up;
@@ -179,8 +176,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Traversal|Animation")
 	UAnimationAsset* ClimbAnim_Top;
 
-	/** Currently playing climb animation asset */
-	UAnimationAsset* CurrentClimbAnimation = nullptr;
+	/** Optional montage variant for mantle with root motion */
+	UPROPERTY(EditAnywhere, Category="Traversal|Animation")
+	UAnimMontage* ClimbMontage_Top;
 
 	/** Pending climb hold timer */
 	FTimerHandle ClimbHoldTimer;
@@ -190,6 +188,10 @@ protected:
 
 	/** True while the character is actively mantling onto a ledge */
 	bool bIsMantling = false;
+
+	/** Expected capsule location on top of the ledge after mantle finishes */
+	FVector PendingMantleTopLocation = FVector::ZeroVector;
+	bool bHasPendingMantleTopLocation = false;
 
 	/** Starts the mantle sequence from a valid ledge hit */
 	void BeginWallMantle(const FHitResult& LedgeHit);

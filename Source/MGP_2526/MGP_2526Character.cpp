@@ -148,6 +148,10 @@ void AMGP_2526Character::DoJumpStart()
 {
 	LOG_FUNCTION_ENTRY();
 	bClimbInputHeld = true;
+
+	const bool bCanBeginClimbNow = !GetWorld()
+		|| ((GetWorld()->GetTimeSeconds() - LastTraversalStateChangeTime) >= ClimbReentryDelay
+			&& GetWorld()->GetTimeSeconds() >= ClimbReattachBlockedUntilTime);
  
 	if (TraversalState == ETraversalState::Climbing)
 	{
@@ -164,7 +168,7 @@ void AMGP_2526Character::DoJumpStart()
 	const FVector TraceStart = FirstPersonCameraComponent ? FirstPersonCameraComponent->GetComponentLocation() : GetActorLocation();
 	const FVector TraceDirection = FirstPersonCameraComponent ? FirstPersonCameraComponent->GetForwardVector() : GetActorForwardVector();
  
-	if (FindClimbableWall(TraceStart, TraceDirection, ClimbTraceDistance, WallHit))
+	if (bCanBeginClimbNow && FindClimbableWall(TraceStart, TraceDirection, ClimbTraceDistance, WallHit))
 	{
 		if (UWorld* World = GetWorld())
 		{
@@ -206,6 +210,12 @@ void AMGP_2526Character::DoJumpEnd()
 void AMGP_2526Character::TryStartWallClimb()
 {
 	LOG_FUNCTION_ENTRY();
+	if (GetWorld() && ((GetWorld()->GetTimeSeconds() - LastTraversalStateChangeTime) < ClimbReentryDelay
+		|| GetWorld()->GetTimeSeconds() < ClimbReattachBlockedUntilTime))
+	{
+		return;
+	}
+
 	if (!bClimbInputHeld || TraversalState == ETraversalState::Climbing)
 	{
 		return;
@@ -324,19 +334,22 @@ void AMGP_2526Character::BeginWallMantle(const FHitResult& LedgeHit)
     {
         FirstPersonMesh->Stop();
 
-		float AnimDuration = MantleDuration;
+		const float EffectivePlayRate = FMath::Max(0.1f, MantlePlayRate);
+		float AnimDuration = FMath::Max(0.05f, MantleDuration / EffectivePlayRate);
 		bool bPlayedMontage = false;
 
 		if (ClimbMontage_Top)
 		{
 			FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+			FirstPersonMesh->GlobalAnimRateScale = 1.0f;
 			if (UAnimInstance* AnimInstance = FirstPersonMesh->GetAnimInstance())
 			{
 				AnimInstance->SetRootMotionMode(ERootMotionMode::RootMotionFromEverything);
-				const float PlayedDuration = AnimInstance->Montage_Play(ClimbMontage_Top, 1.0f);
+				const float PlayedDuration = AnimInstance->Montage_Play(ClimbMontage_Top, EffectivePlayRate);
 				if (PlayedDuration > 0.0f)
 				{
-					AnimDuration = PlayedDuration;
+					const float MontageDuration = ClimbMontage_Top->GetPlayLength() / EffectivePlayRate;
+					AnimDuration = FMath::Max(0.05f, MontageDuration - MantleSnapLeadTime);
 					bPlayedMontage = true;
 				}
 			}
@@ -345,11 +358,16 @@ void AMGP_2526Character::BeginWallMantle(const FHitResult& LedgeHit)
 		if (!bPlayedMontage && ClimbAnim_Top)
 		{
 			FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+			FirstPersonMesh->GlobalAnimRateScale = EffectivePlayRate;
 			FirstPersonMesh->PlayAnimation(ClimbAnim_Top, false);
 
 			if (UAnimSequence* Seq = Cast<UAnimSequence>(ClimbAnim_Top))
 			{
-				AnimDuration = FMath::Max(0.05f, Seq->GetPlayLength());
+				AnimDuration = FMath::Max(0.05f, (Seq->GetPlayLength() / EffectivePlayRate) - MantleSnapLeadTime);
+			}
+			else
+			{
+				AnimDuration = FMath::Max(0.05f, AnimDuration - MantleSnapLeadTime);
 			}
 		}
 
@@ -576,6 +594,7 @@ void AMGP_2526Character::OnMantleFinished()
 	{
 		// Stop single-node play and restore anim instance usage
 		FirstPersonMesh->Stop();
+		FirstPersonMesh->GlobalAnimRateScale = 1.0f;
 		FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 	}
  
@@ -589,6 +608,11 @@ void AMGP_2526Character::OnMantleFinished()
 void AMGP_2526Character::EndWallClimb(bool bLaunchAway)
 {
 	LOG_FUNCTION_ENTRY();
+	if (GetWorld())
+	{
+		ClimbReattachBlockedUntilTime = GetWorld()->GetTimeSeconds() + ClimbReentryDelay;
+	}
+
 	if (!bLaunchAway)
 	{
 		FHitResult LedgeHit;
@@ -671,6 +695,12 @@ void AMGP_2526Character::Tick(float DeltaSeconds)
 	}
 	else if (GetCharacterMovement() && GetCharacterMovement()->IsFalling() && bClimbInputHeld)
 	{
+		if (GetWorld() && ((GetWorld()->GetTimeSeconds() - LastTraversalStateChangeTime) < ClimbReentryDelay
+			|| GetWorld()->GetTimeSeconds() < ClimbReattachBlockedUntilTime))
+		{
+			return;
+		}
+
 		FHitResult WallHit;
 		const FVector TraceStart = FirstPersonCameraComponent ? FirstPersonCameraComponent->GetComponentLocation() : GetActorLocation();
 		const FVector TraceDirection = FirstPersonCameraComponent ? FirstPersonCameraComponent->GetForwardVector() : GetActorForwardVector();
@@ -685,6 +715,12 @@ void AMGP_2526Character::Tick(float DeltaSeconds)
 		// Allow holding the climb input while walking to start a climb
 		if (bClimbInputHeld && TraversalState != ETraversalState::Climbing)
 		{
+			if (GetWorld() && ((GetWorld()->GetTimeSeconds() - LastTraversalStateChangeTime) < ClimbReentryDelay
+				|| GetWorld()->GetTimeSeconds() < ClimbReattachBlockedUntilTime))
+			{
+				return;
+			}
+
 			if (!GetWorld()->GetTimerManager().IsTimerActive(ClimbHoldTimer))
 			{
 				FHitResult WallHit;
@@ -789,6 +825,10 @@ void AMGP_2526Character::SetTraversalState(ETraversalState NewState)
  
 	const ETraversalState PreviousState = TraversalState;
 	TraversalState = NewState;
+	if (GetWorld())
+	{
+		LastTraversalStateChangeTime = GetWorld()->GetTimeSeconds();
+	}
  
 	UE_LOG(LogMGP_2526, Log, TEXT("Traversal state changed from %s to %s"), *GetTraversalStateText(PreviousState), *GetTraversalStateText(NewState));
  

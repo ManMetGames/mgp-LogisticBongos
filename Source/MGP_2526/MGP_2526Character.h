@@ -97,6 +97,14 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta=(ClampMin=0.01f, Units="s"))
 	float MantleDuration = 0.45f;
 
+	/** Playback rate multiplier for mantle animation */
+	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta=(ClampMin=0.1f))
+	float MantlePlayRate = 1.75f;
+
+	/** Snap to final mantle position this much before animation end (s) */
+	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta=(ClampMin=0.0f, Units="s"))
+	float MantleSnapLeadTime = 0.08f;
+
 	/** Default FOV while walking */
 	UPROPERTY(EditAnywhere, Category="Traversal|Camera", meta = (ClampMin = 0, Units = "deg"))
 	float WalkingFOV = 70.0f;
@@ -140,6 +148,16 @@ protected:
 	/** Optional landing thud sound used when leaving a climb and hitting the ground */
 	UPROPERTY(EditAnywhere, Category="Traversal|Audio")
 	USoundBase* LandingThudSound;
+
+	/** Delay before another climb can begin after traversal state changes */
+	UPROPERTY(EditAnywhere, Category="Traversal|Climb", meta=(ClampMin=0.0f, Units="s"))
+	float ClimbReentryDelay = 0.75f;
+
+	/** World time when traversal state last changed */
+	float LastTraversalStateChangeTime = -1000.0f;
+
+	/** Absolute world time until climb re-attach is blocked */
+	float ClimbReattachBlockedUntilTime = -1000.0f;
 
 	/** True while the climb input is being held */
 	bool bClimbInputHeld = false;

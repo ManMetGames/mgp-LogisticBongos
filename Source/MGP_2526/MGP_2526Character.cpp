@@ -23,10 +23,10 @@ AMGP_2526Character::AMGP_2526Character()
 	LOG_FUNCTION_ENTRY();
 	PrimaryActorTick.bCanEverTick = true;
  
-	/** Set size for collision capsule */
+	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
  
-	/** Create the first person mesh that will be viewed only by this character's owner */
+	// Create the first person mesh that will be viewed only by this character's owner
 	FirstPersonMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("First Person Mesh"));
  
 	FirstPersonMesh->SetupAttachment(GetMesh());
@@ -34,7 +34,7 @@ AMGP_2526Character::AMGP_2526Character()
 	FirstPersonMesh->FirstPersonPrimitiveType = EFirstPersonPrimitiveType::FirstPerson;
 	FirstPersonMesh->SetCollisionProfileName(FName("NoCollision"));
  
-	/** Create the Camera Component */
+	// Create the Camera Component
 	FirstPersonCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("First Person Camera"));
 	FirstPersonCameraComponent->SetupAttachment(FirstPersonMesh, FName("head"));
 	FirstPersonCameraComponent->SetRelativeLocationAndRotation(FVector(-2.8f, 5.89f, 0.0f), FRotator(0.0f, 90.0f, -90.0f));
@@ -44,13 +44,13 @@ AMGP_2526Character::AMGP_2526Character()
 	FirstPersonCameraComponent->FirstPersonFieldOfView = 70.0f;
 	FirstPersonCameraComponent->FirstPersonScale = 0.6f;
  
-	/** Configure the character comps */
+	// Configure the character comps
 	GetMesh()->SetOwnerNoSee(true);
 	GetMesh()->FirstPersonPrimitiveType = EFirstPersonPrimitiveType::WorldSpaceRepresentation;
  
 	GetCapsuleComponent()->SetCapsuleSize(34.0f, 96.0f);
  
-	/** Configure character movement */
+	// Configure character movement
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
 	GetCharacterMovement()->AirControl = 0.5f;
 	GetCharacterMovement()->MaxFlySpeed = ClimbSpeed;
@@ -62,22 +62,24 @@ AMGP_2526Character::AMGP_2526Character()
 		FirstPersonCameraComponent->SetFieldOfView(WalkingFOV);
 		CurrentFOVTarget = WalkingFOV;
 	}
+
+	CurrentClimbStamina = MaxClimbStamina;
 }
  
 void AMGP_2526Character::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {	
 	LOG_FUNCTION_ENTRY();
-	/** Set up action bindings */
+	// Set up action bindings
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		/** Jumping */
+		// Jumping
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AMGP_2526Character::DoJumpStart);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AMGP_2526Character::DoJumpEnd);
  
-		/** Moving */
+		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMGP_2526Character::MoveInput);
  
-		/** Looking/Aiming */
+		// Looking/Aiming
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMGP_2526Character::LookInput);
 		EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &AMGP_2526Character::LookInput);
 	}
@@ -90,32 +92,29 @@ void AMGP_2526Character::SetupPlayerInputComponent(UInputComponent* PlayerInputC
  
 void AMGP_2526Character::MoveInput(const FInputActionValue& Value)
 {
-	LOG_FUNCTION_ENTRY();
-	/** Get the Vector2D move axis */
+	// Get the Vector2D move axis
 	FVector2D MovementVector = Value.Get<FVector2D>();
- 
-	/** Pass the axis values to the move input */
+
+	// Pass the axis values to the move input
 	DoMove(MovementVector.X, MovementVector.Y);
  
 }
  
 void AMGP_2526Character::LookInput(const FInputActionValue& Value)
 {
-	LOG_FUNCTION_ENTRY();
-	/** Get the Vector2D look axis */
+	// Get the Vector2D look axis
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
- 
-	/** Pass the axis values to the aim input */
+
+	// Pass the axis values to the aim input
 	DoAim(LookAxisVector.X, LookAxisVector.Y);
  
 }
  
 void AMGP_2526Character::DoAim(float Yaw, float Pitch)
 {
-	LOG_FUNCTION_ENTRY();
 	if (GetController())
 	{
-		/** Pass the rotation inputs */
+		// Pass the rotation inputs
 		AddControllerYawInput(Yaw);
 		AddControllerPitchInput(Pitch);
 	}
@@ -123,7 +122,6 @@ void AMGP_2526Character::DoAim(float Yaw, float Pitch)
  
 void AMGP_2526Character::DoMove(float Right, float Forward)
 {
-	LOG_FUNCTION_ENTRY();
 	if (GetController())
 	{
 		if (TraversalState == ETraversalState::Mantling)
@@ -140,7 +138,7 @@ void AMGP_2526Character::DoMove(float Right, float Forward)
 			return;
 		}
  
-		/** Pass the move inputs */
+		// Pass the move inputs
 		AddMovementInput(GetActorRightVector(), Right);
 		AddMovementInput(GetActorForwardVector(), Forward);
 	}
@@ -180,7 +178,7 @@ void AMGP_2526Character::DoJumpStart()
 		return;
 	}
  
-	/** If there is no wall in range, keep the normal jump behaviour. */
+	// If there is no wall in range, keep the normal jump behaviour.
 	Jump();
 }
  
@@ -205,7 +203,7 @@ void AMGP_2526Character::DoJumpEnd()
 		return;
 	}
  
-	/** Pass StopJumping to the character */
+	// Pass StopJumping to the character
 	StopJumping();
 }
  
@@ -630,7 +628,7 @@ void AMGP_2526Character::EndWallClimb(bool bLaunchAway)
 	if (FirstPersonMesh)
 	{
 		FirstPersonMesh->Stop();
-		// restored to anim blueprint below
+		FirstPersonMesh->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 	}
  
 	if (UCharacterMovementComponent* Movement = GetCharacterMovement())
@@ -659,15 +657,24 @@ void AMGP_2526Character::EndWallClimb(bool bLaunchAway)
  
 void AMGP_2526Character::Tick(float DeltaSeconds)
 {
-	UE_LOG(LogMGP_2526, VeryVerbose, TEXT("%s activated"), ANSI_TO_TCHAR(__FUNCTION__));
 	Super::Tick(DeltaSeconds);
  
 	if (TraversalState == ETraversalState::Climbing)
 	{
+		// Drain stamina while climbing
+		CurrentClimbStamina -= ClimbStaminaDrainRate * DeltaSeconds;
+		if (CurrentClimbStamina <= 0.0f)
+		{
+			CurrentClimbStamina = 0.0f;
+			UE_LOG(LogMGP_2526, Warning, TEXT("Stamina depleted! Forcing end of climb."));
+			EndWallClimb(true);
+			return;
+		}
+
 		FHitResult WallHit;
 		const FVector TraceStart = GetActorLocation();
 		const FVector TraceDirection = -CurrentClimbNormal;
- 
+
 		if (FindClimbableWall(TraceStart, TraceDirection, WallStandOffDistance + 30.0f, WallHit))
 		{
 			CurrentClimbNormal = WallHit.ImpactNormal.GetSafeNormal();
@@ -688,7 +695,7 @@ void AMGP_2526Character::Tick(float DeltaSeconds)
 				EndWallClimb(false);
 			}
 		}
- 
+
 		// Climbing: animation handled in BeginWallClimb (single looping clip)
 	}
 	else if (TraversalState == ETraversalState::Mantling)
@@ -737,12 +744,14 @@ void AMGP_2526Character::Tick(float DeltaSeconds)
 				}
 			}
 		}
+		// Recover stamina when not climbing
+		CurrentClimbStamina = FMath::Min(CurrentClimbStamina + ClimbStaminaRecoveryRate * DeltaSeconds, MaxClimbStamina);
 		SetTraversalState(GetCharacterMovement()->IsFalling() ? ETraversalState::Falling : ETraversalState::Walking);
 	}
  
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(42, 0.0f, FColor::Green, FString::Printf(TEXT("Traversal State: %s"), *GetTraversalStateText(TraversalState)));
+		GEngine->AddOnScreenDebugMessage(42, 0.0f, FColor::Green, FString::Printf(TEXT("Traversal State: %s | Stamina: %.1f/%.1f"), *GetTraversalStateText(TraversalState), CurrentClimbStamina, MaxClimbStamina));
 	}
  
 	if (GetCharacterMovement() && GetCharacterMovement()->IsFalling())
@@ -809,22 +818,21 @@ void AMGP_2526Character::Landed(const FHitResult& Hit)
 		}
 	}
  
-	/** FOV handled by grace/interp logic */
+	// FOV handled by grace/interp logic
  
-	if (LandingThudSound)
+	if (LandingThudSound && FallTimeCounter >= 1.5f)
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, LandingThudSound, GetActorLocation());
+		UGameplayStatics::PlaySoundAtLocation(this, LandingThudSound, GetActorLocation(), 1.0f, 1.5f);
 	}
 }
  
 void AMGP_2526Character::SetTraversalState(ETraversalState NewState)
 {
-	LOG_FUNCTION_ENTRY();
 	if (TraversalState == NewState)
 	{
 		return;
 	}
- 
+
 	const ETraversalState PreviousState = TraversalState;
 	TraversalState = NewState;
 
@@ -855,10 +863,10 @@ void AMGP_2526Character::SetTraversalState(ETraversalState NewState)
  
 	UE_LOG(LogMGP_2526, Log, TEXT("Traversal state changed from %s to %s"), *GetTraversalStateText(PreviousState), *GetTraversalStateText(NewState));
  
-		/** Manage FOV targets and a short grace period when reverting from falling */
+		// Manage FOV targets and a short grace period when reverting from falling
 	if (PreviousState == ETraversalState::Falling && NewState != ETraversalState::Falling)
 	{
-		/** Hold the falling FOV for a moment before reverting */
+		// Hold the falling FOV for a moment before reverting
 		bFOVInGrace = true;
 		FOVGraceTimer = FOVRevertGrace;
 		CurrentFOVTarget = FallingFOV;
@@ -866,7 +874,7 @@ void AMGP_2526Character::SetTraversalState(ETraversalState NewState)
 	else if (NewState == ETraversalState::Falling)
 	{
 		bFOVInGrace = false;
-		/** Start counting fall time; we will apply the falling FOV after FallFOVDelay */
+		// Start counting fall time; we will apply the falling FOV after FallFOVDelay
 		FallTimeCounter = 0.0f;
 	}
 	else
@@ -890,7 +898,6 @@ void AMGP_2526Character::SetTraversalState(ETraversalState NewState)
  
 FString AMGP_2526Character::GetTraversalStateText(ETraversalState State) const
 {
-	UE_LOG(LogMGP_2526, VeryVerbose, TEXT("%s activated"), ANSI_TO_TCHAR(__FUNCTION__));
 	switch (State)
 	{
 	case ETraversalState::Walking:

@@ -169,6 +169,22 @@ protected:
 	bool bCachedUseControllerRotationYaw = false;
 	bool bCachedOrientRotationToMovement = false;
 
+	/** Maximum stamina available for climbing */
+	UPROPERTY(EditAnywhere, Category="Traversal|Stamina", meta=(ClampMin=0.0f, Units="s"))
+	float MaxClimbStamina = 10.0f;
+
+	/** Current stamina remaining for climbing */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Traversal|Stamina")
+	float CurrentClimbStamina = 10.0f;
+
+	/** How much stamina drains per second while climbing */
+	UPROPERTY(EditAnywhere, Category="Traversal|Stamina", meta=(ClampMin=0.0f))
+	float ClimbStaminaDrainRate = 0.5f;
+
+	/** How much stamina recovers per second when not climbing */
+	UPROPERTY(EditAnywhere, Category="Traversal|Stamina", meta=(ClampMin=0.0f))
+	float ClimbStaminaRecoveryRate = 0.75f;
+
 	/** Climb animation assets (looping) for directional movement */
 	UPROPERTY(EditAnywhere, Category="Traversal|Animation")
 	UAnimationAsset* ClimbAnim_Up;

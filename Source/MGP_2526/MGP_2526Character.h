@@ -165,6 +165,10 @@ protected:
 	/** The wall normal we are currently climbing against */
 	FVector CurrentClimbNormal = FVector::ForwardVector;
 
+	/** Cached rotation settings so climbing can temporarily override actor rotation behavior */
+	bool bCachedUseControllerRotationYaw = false;
+	bool bCachedOrientRotationToMovement = false;
+
 	/** Climb animation assets (looping) for directional movement */
 	UPROPERTY(EditAnywhere, Category="Traversal|Animation")
 	UAnimationAsset* ClimbAnim_Up;

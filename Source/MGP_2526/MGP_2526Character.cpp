@@ -54,6 +54,8 @@ AMGP_2526Character::AMGP_2526Character()
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
 	GetCharacterMovement()->AirControl = 0.5f;
 	GetCharacterMovement()->MaxFlySpeed = ClimbSpeed;
+	bCachedUseControllerRotationYaw = bUseControllerRotationYaw;
+	bCachedOrientRotationToMovement = GetCharacterMovement()->bOrientRotationToMovement;
  
 	if (FirstPersonCameraComponent)
 	{
@@ -825,6 +827,27 @@ void AMGP_2526Character::SetTraversalState(ETraversalState NewState)
  
 	const ETraversalState PreviousState = TraversalState;
 	TraversalState = NewState;
+
+	if (NewState == ETraversalState::Climbing)
+	{
+		// Keep the character body facing the wall while still allowing free camera look.
+		bCachedUseControllerRotationYaw = bUseControllerRotationYaw;
+		if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+		{
+			bCachedOrientRotationToMovement = Movement->bOrientRotationToMovement;
+			Movement->bOrientRotationToMovement = false;
+		}
+		bUseControllerRotationYaw = false;
+	}
+	else if (PreviousState == ETraversalState::Climbing)
+	{
+		if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+		{
+			Movement->bOrientRotationToMovement = bCachedOrientRotationToMovement;
+		}
+		bUseControllerRotationYaw = bCachedUseControllerRotationYaw;
+	}
+
 	if (GetWorld())
 	{
 		LastTraversalStateChangeTime = GetWorld()->GetTimeSeconds();

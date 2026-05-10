@@ -7,7 +7,7 @@
 #include "MGP_2526GameMode.generated.h"
 
 /**
- *  Simple GameMode for a third person game
+ *  Simple GameMode for a first person game
  */
 UCLASS(abstract)
 class AMGP_2526GameMode : public AGameModeBase
@@ -15,8 +15,6 @@ class AMGP_2526GameMode : public AGameModeBase
 	GENERATED_BODY()
 
 public:
-	
-	/** Constructor */
 	AMGP_2526GameMode();
 };
 

@@ -4,7 +4,7 @@
 This project implements a modular traversal system in Unreal Engine using C++.  
 The mechanic is built around a custom traversal state machine that controls player behaviour across multiple movement modes.
 
-MMUTUBE LINK
+https://mmutube.mmu.ac.uk/media/t/1_shn7jogl
 
 The system prioritises:
 - Clean and controlled state transitions  
@@ -12,6 +12,13 @@ The system prioritises:
 - Expandability for future traversal mechanics  
 
 ---
+
+## Controls/Input
+
+WASD to move
+SPACE to jump
+Hold SPACE to climb
+WASD to move when climbing
 
 ## Core Traversal Flow
 
